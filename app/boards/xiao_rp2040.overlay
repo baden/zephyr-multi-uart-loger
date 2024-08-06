@@ -10,18 +10,26 @@
  */
 
 / {
-	example_sensor: example-sensor {
-		compatible = "zephyr,example-sensor";
-		input-gpios = <&gpioc 13 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-	};
-
-	blink_led: blink-led {
-		compatible = "blink-gpio-led";
-		led-gpios = <&gpiob 13 GPIO_ACTIVE_HIGH>;
-		blink-period-ms = <1000>;
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
 	};
 };
 
-&gpioc {
-	status = "okay";
+&pinctrl {
+	ws2812_pio0_default: ws2812_pio0_default {
+		ws2812 {
+			pinmux = <PIO0_P16>;
+		};
+	};
+};
+
+// &gpioc {
+// 	status = "okay";
+// };
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
 };
