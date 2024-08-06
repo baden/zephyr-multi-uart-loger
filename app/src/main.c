@@ -54,6 +54,33 @@ static const struct device *const uart2 = DEVICE_DT_GET(DT_ALIAS(uart2));
 #define RING_BUF_SIZE 1024
 uint8_t ring_buffer[RING_BUF_SIZE];
 
+
+#define RX_RING_BUF_SIZE 1024
+uint8_t rx_ring_buffer1[RX_RING_BUF_SIZE];
+uint8_t rx_ring_buffer2[RX_RING_BUF_SIZE];
+
+struct rx_data {
+	uint8_t idx;
+	uint8_t *buffer;
+	uint16_t size;
+	uint16_t pos;
+};
+
+struct rx_data rx_data1 = {
+	.idx = 1,
+	.buffer = rx_ring_buffer1,
+	.size = RX_RING_BUF_SIZE,
+	.pos = 0,
+};
+
+struct rx_data rx_data2 = {
+	.idx = 2,
+	.buffer = rx_ring_buffer2,
+	.size = RX_RING_BUF_SIZE,
+	.pos = 0,
+};
+
+
 struct ring_buf ringbuf;
 
 static bool rx_throttled;
@@ -201,6 +228,8 @@ void serial_cb(const struct device *dev, void *user_data)
 {
 	uint8_t c;
 
+	struct rx_data *rx_data = (struct rx_data *)user_data;
+
 	if (!uart_irq_update(dev)) {
 		return;
 	}
@@ -211,17 +240,24 @@ void serial_cb(const struct device *dev, void *user_data)
 
 	/* read until FIFO empty */
 	while (uart_fifo_read(dev, &c, 1) == 1) {
-
-		#if 0
-		if ((c == '\n' || c == '\r') && rx_buf_pos > 0) {
-
-		} else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
-			rx_buf[rx_buf_pos++] = c;
+		// LOG_ERR("%d/%d/0x%02x", rx_data->idx, rx_data->pos, c);
+		if( (c == '\n') || (c == '\r') ) {
+			if(rx_data->pos > 0) {
+				rx_data->buffer[rx_data->pos] = '\0';
+				if( rx_data->idx == 1 ) {
+					LOG_INF("%d:%s", rx_data->idx, rx_data->buffer);
+				} else {
+					LOG_ERR("%d:%s", rx_data->idx, rx_data->buffer);
+				}
+				rx_data->pos = 0;
+			}
+		} else if( rx_data->pos < (RX_RING_BUF_SIZE - 2) ) {
+			rx_data->buffer[rx_data->pos++] = c;
+			// rx_buf[rx_buf_pos++] = c;
 		}
-		#endif
-		char buffer[64];
-		buffer[0] = c;
-		/*rb_len = */ring_buf_put(&ringbuf, buffer, 1);
+		// char buffer[64];
+		// buffer[0] = c;
+		// /*rb_len = */ring_buf_put(&ringbuf, buffer, 1);
 	}
 }
 
@@ -235,7 +271,7 @@ int main(void)
 		LOG_ERR("UART1 device not ready");
 		return 0;
 	}
-	ret = uart_irq_callback_user_data_set(uart1, serial_cb, (void *)1);
+	ret = uart_irq_callback_user_data_set(uart1, serial_cb, (void *)&rx_data1);
 	if (ret) {
 		LOG_ERR("Failed to set IRQ callback");
 		return 0;
@@ -247,7 +283,7 @@ int main(void)
 		LOG_ERR("UART2 device not ready");
 		return 0;
 	}
-	ret = uart_irq_callback_user_data_set(uart2, serial_cb, (void *)2);
+	ret = uart_irq_callback_user_data_set(uart2, serial_cb, (void *)&rx_data2);
 	if (ret) {
 		LOG_ERR("Failed to set IRQ callback");
 		return 0;
