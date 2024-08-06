@@ -10,10 +10,29 @@
  */
 
 / {
+	aliases {
+		uart1 = &uart0;
+		uart2 = &uart1;
+	};
+
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
 		zephyr,shell-uart = &cdc_acm_uart0;
 	};
+};
+
+&uart0 {
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+};
+
+&uart1 {
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-names = "default";
 };
 
 &pinctrl {
@@ -22,7 +41,32 @@
 			pinmux = <PIO0_P16>;
 		};
 	};
+
+	uart0_default: uart0_default {
+		/* TX is not used */
+		group1 {
+			pinmux = <UART0_TX_P12>;
+		};
+		group2 {
+			pinmux = <UART0_RX_P13>;
+			input-enable;
+		};
+	};
+
+	uart1_default: uart1_default {
+		/* TX is not used */
+		group1 {
+			pinmux = <UART1_TX_P8>;
+		};
+		group2 {
+			pinmux = <UART1_RX_P9>;
+			input-enable;
+		};
+	};
+
 };
+
+
 
 // &gpioc {
 // 	status = "okay";

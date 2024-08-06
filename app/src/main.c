@@ -44,6 +44,13 @@ static const struct led_rgb colors[] = {
 	RGB(0x00, 0x00, 0x0f), /* blue */
 };
 
+
+#define UART1_DEV
+
+static const struct device *const uart1 = DEVICE_DT_GET(DT_ALIAS(uart1));
+static const struct device *const uart2 = DEVICE_DT_GET(DT_ALIAS(uart2));
+
+
 #define RING_BUF_SIZE 1024
 uint8_t ring_buffer[RING_BUF_SIZE];
 
@@ -185,10 +192,70 @@ static void interrupt_handler(const struct device *dev, void *user_data)
 	}
 }
 
+
+/*
+ * Read characters from UART until line end is detected. Afterwards push the
+ * data to the message queue.
+ */
+void serial_cb(const struct device *dev, void *user_data)
+{
+	uint8_t c;
+
+	if (!uart_irq_update(dev)) {
+		return;
+	}
+	
+	if (!uart_irq_rx_ready(dev)) {
+		return;
+	}
+
+	/* read until FIFO empty */
+	while (uart_fifo_read(dev, &c, 1) == 1) {
+
+		#if 0
+		if ((c == '\n' || c == '\r') && rx_buf_pos > 0) {
+
+		} else if (rx_buf_pos < (sizeof(rx_buf) - 1)) {
+			rx_buf[rx_buf_pos++] = c;
+		}
+		#endif
+		char buffer[64];
+		buffer[0] = c;
+		/*rb_len = */ring_buf_put(&ringbuf, buffer, 1);
+	}
+}
+
 int main(void)
 {
 	int ret;
 
+
+	/* hardware UARTs */
+	if (!device_is_ready(uart1)) {
+		LOG_ERR("UART1 device not ready");
+		return 0;
+	}
+	ret = uart_irq_callback_user_data_set(uart1, serial_cb, (void *)1);
+	if (ret) {
+		LOG_ERR("Failed to set IRQ callback");
+		return 0;
+	}
+	uart_irq_rx_enable(uart1);
+
+
+	if (!device_is_ready(uart2)) {
+		LOG_ERR("UART2 device not ready");
+		return 0;
+	}
+	ret = uart_irq_callback_user_data_set(uart2, serial_cb, (void *)2);
+	if (ret) {
+		LOG_ERR("Failed to set IRQ callback");
+		return 0;
+	}
+	uart_irq_rx_enable(uart2);
+
+
+	/* USB UART */
 	if (!device_is_ready(uart_dev)) {
 		LOG_ERR("CDC ACM device not ready");
 		return 0;
@@ -209,7 +276,7 @@ int main(void)
 
 
 	if (device_is_ready(strip)) {
-		LOG_INF("Found LED strip device %s", strip->name);
+		LOG_INF("Found LED strip device %s. %d pixels", strip->name, STRIP_NUM_PIXELS);
 	} else {
 		LOG_ERR("LED strip device %s is not ready", strip->name);
 		return 0;
